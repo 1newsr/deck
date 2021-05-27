@@ -101,3 +101,27 @@ func WorkspaceExists(ctx context.Context, client *kong.Client) (bool, error) {
 	}
 	return client.Workspaces.Exists(ctx, &workspace)
 }
+
+func GetConsumerWithIDAndUsername(c kong.Consumer) *kong.Consumer {
+	consumer := &kong.Consumer{ID: kong.String(*c.ID)}
+	if c.Username != nil {
+		consumer.Username = kong.String(*c.Username)
+	}
+	return consumer
+}
+
+func GetServiceWithIDAndName(s kong.Service) *kong.Service {
+	service := &kong.Service{ID: kong.String(*s.ID)}
+	if s.Name != nil {
+		service.Name = kong.String(*s.Name)
+	}
+	return service
+}
+
+func GetRouteWithIDAndName(r kong.Route) *kong.Route {
+	route := &kong.Route{ID: kong.String(*r.ID)}
+	if r.Name != nil {
+		route.Name = kong.String(*r.Name)
+	}
+	return route
+}
