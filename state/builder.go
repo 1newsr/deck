@@ -20,6 +20,42 @@ func Get(raw *utils.KongRawState) (*KongState, error) {
 	return kongState, nil
 }
 
+func ensureService(kongState *KongState, serviceID string) (bool, *kong.Service, error) {
+	s, err := kongState.Services.Get(serviceID)
+	if err != nil {
+		if err == ErrNotFound {
+			return false, nil, nil
+		}
+		return false, nil, fmt.Errorf("looking up service %q: %w", serviceID, err)
+
+	}
+	return true, utils.GetServiceWithIDAndName(s.Service), nil
+}
+
+func ensureRoute(kongState *KongState, routeID string) (bool, *kong.Route, error) {
+	r, err := kongState.Routes.Get(routeID)
+	if err != nil {
+		if err == ErrNotFound {
+			return false, nil, nil
+		}
+		return false, nil, fmt.Errorf("looking up route %q: %w", routeID, err)
+
+	}
+	return true, utils.GetRouteWithIDAndName(r.Route), nil
+}
+
+func ensureConsumer(kongState *KongState, consumerID string) (bool, *kong.Consumer, error) {
+	c, err := kongState.Consumers.Get(consumerID)
+	if err != nil {
+		if err == ErrNotFound {
+			return false, nil, nil
+		}
+		return false, nil, fmt.Errorf("looking up consumer %q: %w", consumerID, err)
+
+	}
+	return true, utils.GetConsumerWithIDAndUsername(c.Consumer), nil
+}
+
 func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 	for _, s := range raw.Services {
 		err := kongState.Services.Add(Service{Service: *s})
@@ -27,20 +63,9 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 			return fmt.Errorf("inserting service into state: %w", err)
 		}
 	}
-	ensureService := func(serviceID string) (bool, *kong.Service, error) {
-		s, err := kongState.Services.Get(serviceID)
-		if err != nil {
-			if err == ErrNotFound {
-				return false, nil, nil
-			}
-			return false, nil, fmt.Errorf("looking up service %q: %w", serviceID, err)
-
-		}
-		return true, utils.AsKongService(s.Service), nil
-	}
 	for _, r := range raw.Routes {
 		if r.Service != nil && !utils.Empty(r.Service.ID) {
-			ok, s, err := ensureService(*r.Service.ID)
+			ok, s, err := ensureService(kongState, *r.Service.ID)
 			if err != nil {
 				return err
 			}
@@ -53,36 +78,14 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 			return fmt.Errorf("inserting route into state: %w", err)
 		}
 	}
-	ensureRoute := func(routeID string) (bool, *kong.Route, error) {
-		r, err := kongState.Routes.Get(routeID)
-		if err != nil {
-			if err == ErrNotFound {
-				return false, nil, nil
-			}
-			return false, nil, fmt.Errorf("looking up route %q: %w", routeID, err)
-
-		}
-		return true, utils.AsKongRoute(r.Route), nil
-	}
 	for _, c := range raw.Consumers {
 		err := kongState.Consumers.Add(Consumer{Consumer: *c})
 		if err != nil {
 			return fmt.Errorf("inserting consumer into state: %w", err)
 		}
 	}
-	ensureConsumer := func(consumerID string) (bool, *kong.Consumer, error) {
-		c, err := kongState.Consumers.Get(consumerID)
-		if err != nil {
-			if err == ErrNotFound {
-				return false, nil, nil
-			}
-			return false, nil, fmt.Errorf("looking up consumer %q: %w", consumerID, err)
-
-		}
-		return true, utils.AsKongConsumer(c.Consumer), nil
-	}
 	for _, cred := range raw.KeyAuths {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -96,7 +99,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.HMACAuths {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -110,7 +113,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.JWTAuths {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -124,7 +127,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.BasicAuths {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -138,7 +141,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.Oauth2Creds {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -152,7 +155,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.ACLGroups {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -166,7 +169,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 		}
 	}
 	for _, cred := range raw.MTLSAuths {
-		ok, c, err := ensureConsumer(*cred.Consumer.ID)
+		ok, c, err := ensureConsumer(kongState, *cred.Consumer.ID)
 		if err != nil {
 			return err
 		}
@@ -217,7 +220,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 
 	for _, p := range raw.Plugins {
 		if p.Service != nil && !utils.Empty(p.Service.ID) {
-			ok, s, err := ensureService(*p.Service.ID)
+			ok, s, err := ensureService(kongState, *p.Service.ID)
 			if err != nil {
 				return err
 			}
@@ -226,7 +229,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 			}
 		}
 		if p.Route != nil && !utils.Empty(p.Route.ID) {
-			ok, r, err := ensureRoute(*p.Route.ID)
+			ok, r, err := ensureRoute(kongState, *p.Route.ID)
 			if err != nil {
 				return err
 			}
@@ -235,7 +238,7 @@ func buildKong(kongState *KongState, raw *utils.KongRawState) error {
 			}
 		}
 		if p.Consumer != nil && !utils.Empty(p.Consumer.ID) {
-			ok, c, err := ensureConsumer(*p.Consumer.ID)
+			ok, c, err := ensureConsumer(kongState, *p.Consumer.ID)
 			if err != nil {
 				return err
 			}
